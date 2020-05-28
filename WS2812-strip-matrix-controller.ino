@@ -59,7 +59,7 @@ const int fadeSteps = 32;           //number of cycles an LED can be lit for, hi
 const int fadeRate = 1;             //rate at which LEDs fade in audio reactivity mode
 const int topSpectrumNum = 5;       //how many LEDs do you want to be a different color on the top of the audio spectrum mode?
 bool audioSingleColor = false;      //do you want single color mode for audio?
-const float audioGain = 1.5;          //increase audio gain by x multiple of V
+const float audioGain = 1.5;        //increase audio gain by x multiple of V
 
 //=======================================================
 
@@ -132,16 +132,19 @@ void program()
       
     case 1:     //two tone sound reactivity
       audioSingleColor = false;
+      audioFFT();
       audioReact();
       break;
 
     case 2:     //single color sound reactivity
       audioSingleColor = true;
+      audioFFT();
       audioReact();
       break;
 
     case 3:     //solid color sound reactivity, pulses to audio
-
+      audioFFT();
+      audioPulse();
       break;
 
     case 4:     //single random color
@@ -164,7 +167,7 @@ void program()
 
 //======================Audio Functions======================
 
-void audioReact()   //computes FFT values for each bin/strip
+void audioFFT()   //computes FFT values for each bin/strip
 {
   //read in FFT values for each bin
   if (fft.available()) {
@@ -210,8 +213,6 @@ void audioReact()   //computes FFT values for each bin/strip
           level[x] = 0;
         }
     }
-    
-  audioHSV();
 
   //Used to debug FFT data
   /*Serial.print("--FFT Data--");
@@ -225,7 +226,7 @@ void audioReact()   //computes FFT values for each bin/strip
   Serial.println();*/
 }
 
-void audioHSV()   //takes FFT values and computes entire LED array frame by frame
+void audioReact()   //takes FFT values and computes entire LED array frame by frame
 {
   int totalLED[NUM_STRIPS];     //intialize array to store how many LEDs on each strip to be lit
   float ran = H + h;            //global hue + random hue increment to make top 5 LEDs a different color
@@ -280,6 +281,19 @@ void audioHSV()   //takes FFT values and computes entire LED array frame by fram
     }
   Serial.print("----------------------------------");
   Serial.println();*/
+}
+
+void audioPulse()                          //pulses each strips brightness based on the volume of that bin
+{
+  int val[NUM_STRIPS];                   //intialize array
+  for(int x = 0; x < NUM_STRIPS; x++)
+    {
+      val[x] = V * level[x];               //set each strips brightness
+      for(int y = 0; y < NUM_LEDS; y++)
+        {
+          setSingleHSV(x, y, H, val[x]);
+        }
+    }
 }
 
 //======================Base LED Functions======================
