@@ -5,7 +5,11 @@ Current Modes are
 1: Default white lamp
 
 2: Dual color audio spectrum reactive via FFT
+
 3: Single color audio spectrum reactive via FFT
+
 4: Solid color audio reactivity via FFT
+
 5: Solid random color
+
 6: RGB cycle fade
