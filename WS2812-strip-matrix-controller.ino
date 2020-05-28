@@ -41,7 +41,7 @@ int mode = 0;
 int H = 0;
 int h = 0;                          //used for random h value in audio reactive mode
 float S = 0;
-const int V = 180;                  //max V value in HSV
+const int V = 170;                  //max V value in HSV
 int minSat = 128;                   //minimum saturation the random saturation can be
 Gaussian sat = Gaussian(1, 0.40);   //creates gaussian with mean of 1 and variance of 0.4
 
@@ -55,11 +55,15 @@ CRGB leds6[NUM_LEDS];
 CRGB leds7[NUM_LEDS];
 
 int LED[NUM_STRIPS][NUM_LEDS];      //main LED array, each data position corresponds to and LED on your matrix, organized in x strips and y LEDs
-const int fadeSteps = 32;           //number of cycles an LED can be lit for, higher values create a longer ghost effect, fades linearly each step. This does not work great for low values of V
+const int fadeSteps = 64;           //number of cycles an LED can be lit for, higher values create a longer ghost effect, fades linearly each step. This does not work great for low values of V
 const int fadeRate = 1;             //rate at which LEDs fade in audio reactivity mode
 const int topSpectrumNum = 5;       //how many LEDs do you want to be a different color on the top of the audio spectrum mode?
 bool audioSingleColor = false;      //do you want single color mode for audio?
-const float audioGain = 1.5;        //increase audio gain by x multiple of V
+bool billyColor = false;            //enable Billy color mode (yellow, pink, and orange)
+const float audioGain = 2;        //increase audio gain by x multiple of V
+const float billyColorSwitchDelay = 5000;   //min time before switching to the next color in Billy color mode
+float lastSwitch = 0;               //saves last time color was switched, used only in Billy color mode
+int color = 0;                      //current color mode, used only in Billy color mode
 
 //=======================================================
 
@@ -143,22 +147,29 @@ void program()
       break;
 
     case 3:     //solid color sound reactivity, pulses to audio
+      billyColor = false;
       audioFFT();
       audioPulse();
       break;
 
-    case 4:     //single random color
+    case 4:     //Billy color sound reactivity, pulses to audio and changes at high volume
+      billyColor = true;
+      audioFFT();
+      audioPulse();
+      break;
+
+    case 5:     //single random color
       allHSV(0, 0);
       break;
 
-    case 5:     //color fading
+    case 6:     //color fading
       allHSV(0, 0);
       H++;
       S = 255;
       delay(100);
       break;
 
-    case 6:     //not a mode, loops the switch back to start, must be last
+    case 7:     //not a mode, loops the switch back to start, must be last
       mode = 0;
       allOff();
       break;
@@ -238,7 +249,7 @@ void audioReact()   //takes FFT values and computes entire LED array frame by fr
   
   for(int x = 0; x < NUM_STRIPS; x++)
     {
-      totalLED[x] = level[x]*NUM_LEDS*audioGain - 1;            //I know I am truncating to integer LED values, but partially lighting the last LED doesn't look good anyway, better to simply fully light them
+      totalLED[x] = level[x] * NUM_LEDS * audioGain - 1;            //I know I am truncating to integer LED values, but partially lighting the last LED doesn't look good anyway, better to simply fully light them
     }
 
 
@@ -285,15 +296,76 @@ void audioReact()   //takes FFT values and computes entire LED array frame by fr
 
 void audioPulse()                          //pulses each strips brightness based on the volume of that bin
 {
-  int val[NUM_STRIPS];                   //intialize array
-  for(int x = 0; x < NUM_STRIPS; x++)
+  int val;
+  float sum, avg;
+  for(int i = 0; i < NUM_STRIPS; i++)      //sum all FFT values
     {
-      val[x] = V * level[x];               //set each strips brightness
-      for(int y = 0; y < NUM_LEDS; y++)
+      sum = sum + level[i];
+    }
+
+  avg = (sum / NUM_STRIPS) * audioGain;    //find average FFT value
+
+  if(avg > 1)
+    {
+      avg = 1.;            //clips avg to never exeed 1
+    }
+
+  val = V * avg;          //maps average FFT to corresponding brightness value, 1 being global V
+
+  if(billyColor == true)  //in Billy color mode, if average FFT value (times gain) is above a threshold and longer than the minimum delay, cycle to next color
+    {
+      if((avg > 0.60) && (millis() - lastSwitch > billyColorSwitchDelay))
         {
-          setSingleHSV(x, y, H, val[x]);
+          color++;
+          lastSwitch = millis();
+        }
+      if(color > 2)
+        {
+          color = 0;
         }
     }
+
+  for(int x = 0; x < NUM_STRIPS; x++)      //set pixel array
+    {
+      for(int y = 0; y < NUM_LEDS; y++)
+        {
+          if(LED[x][y] > val)
+            {
+              LED[x][y] -= fadeRate;       //if previous value for this pixel is higher than the current average FFT value, fade the pixel
+            }
+          else
+            {
+              LED[x][y] = val;
+            }
+            
+          if(billyColor == true)           //if we are in Billy color mode
+            {
+              switch(color)
+                {
+                  case 0:
+                    h = 56;
+                    S = 210;
+                    break;
+
+                  case 1:
+                    h = 200;
+                    S = 170;
+                    break;
+
+                  case 2:
+                    h = 32;
+                    S = 215;
+                    break;
+                }
+              setSingleHSV(x, y, h, LED[x][y]);
+            }
+           else                             //if not in Billy color mode, use global hue
+            {
+              setSingleHSV(x, y, H, LED[x][y]); 
+            }
+        }
+    }
+    FastLED.show();
 }
 
 //======================Base LED Functions======================
@@ -452,38 +524,38 @@ void stripRGB(int strip, int r, int g, int b, int pixdelay)           //set spec
   }
 }
 
-void setSingleHSV(int strip, int i, int h, int v)                     //set a single pixel with the non-global V and H! Does not use global V and H!
+void setSingleHSV(int strip, int i, int hue, int v)                     //set a single pixel with the non-global V and H! Does not use global V and H!
 {
     if (strip == 0)
     {
-      leds0[i] = CHSV(h, S, v);
+      leds0[i] = CHSV(hue, S, v);
     }
     else if (strip == 1)
     {
-      leds1[i] = CHSV(h, S, v);
+      leds1[i] = CHSV(hue, S, v);
     }
     else if (strip == 2)
     {
-      leds2[i] = CHSV(h, S, v);
+      leds2[i] = CHSV(hue, S, v);
     }
     else if (strip == 3)
     {
-      leds3[i] = CHSV(h, S, v);
+      leds3[i] = CHSV(hue, S, v);
     }
     else if (strip == 4)
     {
-      leds4[i] = CHSV(h, S, v);
+      leds4[i] = CHSV(hue, S, v);
     }
     else if (strip == 5)
     {
-      leds5[i] = CHSV(h, S, v);
+      leds5[i] = CHSV(hue, S, v);
     }
     else if (strip == 6)
     {
-      leds6[i] = CHSV(h, S, v);
+      leds6[i] = CHSV(hue, S, v);
     }
     else if (strip == 7)
     {
-      leds7[i] = CHSV(h, S, v);
+      leds7[i] = CHSV(hue, S, v);
     }
 }
