@@ -140,18 +140,22 @@ void program()
       audioReact();
       break;
 
-    case 3:     //color fading
-      allHSV(0, 0);
-      H++;
-      S = 255;
-      delay(100);
+    case 3:     //solid color sound reactivity, pulses to audio
+
       break;
 
     case 4:     //single random color
       allHSV(0, 0);
       break;
 
-    case 5:     //not a mode, loops the switch back to start, must be last
+    case 5:     //color fading
+      allHSV(0, 0);
+      H++;
+      S = 255;
+      delay(100);
+      break;
+
+    case 6:     //not a mode, loops the switch back to start, must be last
       mode = 0;
       allOff();
       break;
