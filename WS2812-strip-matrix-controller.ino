@@ -55,7 +55,7 @@ CRGB leds6[NUM_LEDS];
 CRGB leds7[NUM_LEDS];
 
 int LED[NUM_STRIPS][NUM_LEDS];      //main LED array, each data position corresponds to and LED on your matrix, organized in x strips and y LEDs
-const int fadeSteps = 64;           //number of cycles an LED can be lit for, higher values create a longer ghost effect, fades linearly each step. This does not work great for low values of V
+const int fadeSteps = 32;           //number of cycles an LED can be lit for, higher values create a longer ghost effect, fades linearly each step. This does not work great for low values of V
 const int fadeRate = 1;             //rate at which LEDs fade in audio reactivity mode
 const int topSpectrumNum = 5;       //how many LEDs do you want to be a different color on the top of the audio spectrum mode?
 bool audioSingleColor = false;      //do you want single color mode for audio?
@@ -183,11 +183,11 @@ void audioFFT()   //computes FFT values for each bin/strip
   //read in FFT values for each bin
   if (fft.available()) {
     level[0] = fft.read(0,3);
-    level[1] = fft.read(4, 5);
-    level[2] = fft.read(6, 18);
-    level[3] = fft.read(19, 39);
-    level[4] = fft.read(40, 70);
-    level[5] = fft.read(71, 131);
+    level[1] = fft.read(4, 6);
+    level[2] = fft.read(7, 15);
+    level[3] = fft.read(16, 32);
+    level[4] = fft.read(43, 66);
+    level[5] = fft.read(67, 131);
     level[6] = fft.read(132, 257);
     level[7] = fft.read(258, 511);
   }
