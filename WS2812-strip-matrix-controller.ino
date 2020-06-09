@@ -41,7 +41,7 @@ int mode = 0;
 int H = 0;
 int h = 0;                          //used for random h value in audio reactive mode
 float S = 0;
-const int V = 170;                  //max V value in HSV
+const int V = 150;                  //max V value in HSV
 int minSat = 128;                   //minimum saturation the random saturation can be
 Gaussian sat = Gaussian(1, 0.40);   //creates gaussian with mean of 1 and variance of 0.4
 
