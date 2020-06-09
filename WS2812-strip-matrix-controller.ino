@@ -55,12 +55,12 @@ CRGB leds6[NUM_LEDS];
 CRGB leds7[NUM_LEDS];
 
 int LED[NUM_STRIPS][NUM_LEDS];      //main LED array, each data position corresponds to and LED on your matrix, organized in x strips and y LEDs
-const int fadeSteps = 64;           //number of cycles an LED can be lit for, higher values create a longer ghost effect, fades linearly each step. This does not work great for low values of V
+const int fadeSteps = 32;           //number of cycles an LED can be lit for, higher values create a longer ghost effect, fades linearly each step. This does not work great for low values of V
 const int fadeRate = 1;             //rate at which LEDs fade in audio reactivity mode
 const int topSpectrumNum = 5;       //how many LEDs do you want to be a different color on the top of the audio spectrum mode?
 bool audioSingleColor = false;      //do you want single color mode for audio?
-bool billyColor = false;            //enable Billy color mode (yellow, pink, and orange)
-const float audioGain = 2;        //increase audio gain by x multiple of V
+bool billyColor = false;            //enable Billy color mode (purple, pink, and orange)
+const float audioGain = 2;          //increase audio gain by x multiple of V
 const float billyColorSwitchDelay = 5000;   //min time before switching to the next color in Billy color mode
 float lastSwitch = 0;               //saves last time color was switched, used only in Billy color mode
 int color = 0;                      //current color mode, used only in Billy color mode
@@ -183,13 +183,13 @@ void audioFFT()   //computes FFT values for each bin/strip
   //read in FFT values for each bin
   if (fft.available()) {
     level[0] = fft.read(0,3);
-    level[1] = fft.read(4, 5);
-    level[2] = fft.read(6, 18);
-    level[3] = fft.read(19, 39);
-    level[4] = fft.read(40, 70);
-    level[5] = fft.read(71, 131);
-    level[6] = fft.read(132, 257);
-    level[7] = fft.read(258, 511);
+    level[1] = fft.read(4);
+    level[2] = fft.read(5, 15);
+    level[3] = fft.read(16, 34);
+    level[4] = fft.read(35, 60);
+    level[5] = fft.read(61, 111);
+    level[6] = fft.read(112, 220);
+    level[7] = fft.read(220, 511);
   }
 
   /* Default 16 bin FFT
@@ -249,9 +249,13 @@ void audioReact()   //takes FFT values and computes entire LED array frame by fr
   
   for(int x = 0; x < NUM_STRIPS; x++)
     {
-      totalLED[x] = level[x] * NUM_LEDS * audioGain - 1;            //I know I am truncating to integer LED values, but partially lighting the last LED doesn't look good anyway, better to simply fully light them
-    }
+      totalLED[x] = level[x] * NUM_LEDS * audioGain - 1;  //I know I am truncating to integer LED values, but partially lighting the last LED doesn't look good anyway, better to simply fully light them
 
+      if(totalLED[x] > NUM_LEDS)
+        {
+          totalLED[x] = NUM_LEDS;
+        }
+    }
 
   for(int x = 0; x < NUM_STRIPS; x++)                 //go through every value in main LED array
     {
@@ -261,7 +265,7 @@ void audioReact()   //takes FFT values and computes entire LED array frame by fr
             {
               LED[x][y] = LED[x][y] - fadeRate;
             }
-          if(y <= totalLED[x])                        //if LED is suppose to be lit this cycle, set it to max brightness
+          if(y < totalLED[x])                        //if LED is supposed to be lit this cycle, set it to max brightness
             {
               LED[x][y] = fadeSteps;
             }
@@ -270,9 +274,9 @@ void audioReact()   //takes FFT values and computes entire LED array frame by fr
           
           if(y >= (NUM_LEDS - topSpectrumNum) && audioSingleColor == false)    //when not in single color audio mode, set top LEDs to a different color
             {
-              setSingleHSV(x, y, ran, v);
+              setSingleHSV(x, y, ran, v);      
             }
-          else if(y > 0)
+          else if(y >= 0)
             {
               setSingleHSV(x, y, H, v);
             }
@@ -281,7 +285,7 @@ void audioReact()   //takes FFT values and computes entire LED array frame by fr
   FastLED.show();
 
   //Used to debug the main LED array
-  /*for(int y = NUM_LEDS - 1; y >= 0; y--)
+  for(int y = NUM_LEDS - 1; y >= 0; y--)
     {
       for(int x = 0; x < NUM_STRIPS; x++)
         {
@@ -291,7 +295,7 @@ void audioReact()   //takes FFT values and computes entire LED array frame by fr
       Serial.println();
     }
   Serial.print("----------------------------------");
-  Serial.println();*/
+  Serial.println();
 }
 
 void audioPulse()                          //pulses each strips brightness based on the volume of that bin
@@ -303,7 +307,7 @@ void audioPulse()                          //pulses each strips brightness based
       sum = sum + level[i];
     }
 
-  avg = (sum / NUM_STRIPS) * audioGain;    //find average FFT value
+  avg = (sum / NUM_STRIPS) * 2. * audioGain;    //find average FFT value
 
   if(avg > 1)
     {
@@ -337,23 +341,26 @@ void audioPulse()                          //pulses each strips brightness based
             {
               LED[x][y] = val;
             }
-            
+          if(LED[x][y] < 28)               //clips the minimum fade range to prevent LEDs from displaying red or blue at low brightness
+            {
+              LED[x][y] = 0;
+            }
           if(billyColor == true)           //if we are in Billy color mode
             {
               switch(color)
                 {
-                  case 0:
-                    h = 56;
-                    S = 210;
-                    break;
-
-                  case 1:
-                    h = 200;
+                  case 0:                 //pink
+                    h = 215;
                     S = 170;
                     break;
 
-                  case 2:
-                    h = 32;
+                  case 1:                 //purple
+                    h = 188;
+                    S = 255;
+                    break;
+
+                  case 2:                 //orange
+                    h = 28;
                     S = 215;
                     break;
                 }
